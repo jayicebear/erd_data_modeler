@@ -12,4 +12,4 @@
 | `text_to_sql.py`    | 자연어 질문 → SQL 자동 변환 ( Text-to-SQL)                   |
 | `modeler.py`        | 업무설명 + 기존 테이블/컬럼 → 연관 테이블 자동 유추 → ERD 생성            |
 | `RAG + ChromaDB`      | 과거 데이터 모델링 사례, 내부문서, 모델링 가이드등을 벡터 DB에 저장 → column_guess,modeler 구축 시 활용          |
-| GitHub Auto Deploy  | 생성된 ERD(Mermaid) + 설명 MD를 자동으로 docs/ 브랜치에 푸시            |
+| API(Fast API) | 생성된 ERD(Mermaid) Fast api 활용하여 필요한 부분으로 전송            |
