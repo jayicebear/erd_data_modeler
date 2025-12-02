@@ -11,5 +11,5 @@
 | `column_guesser.py` | 컬럼명만 보고 의미 추측 (예: `cust_no` → "고객번호", `ord_amt` → "주문금액") |
 | `text_to_sql.py`    | 자연어 질문 → SQL 자동 변환 ( Text-to-SQL)                   |
 | `modeler.py`        | 업무설명 + 기존 테이블/컬럼 → 연관 테이블 자동 유추 → ERD 생성            |
-| RAG + ChromaDB      | 과거 데이터 모델링 사례, 내부문서, 모델링 가이드등을 벡터 DB에 저장 → 유사 업무 시 재활용           |
+| `RAG + ChromaDB`      | 과거 데이터 모델링 사례, 내부문서, 모델링 가이드등을 벡터 DB에 저장 → 유사 업무 시 재활용           |
 | GitHub Auto Deploy  | 생성된 ERD(Mermaid) + 설명 MD를 자동으로 docs/ 브랜치에 푸시            |
