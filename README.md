@@ -1,4 +1,4 @@
-# Auto Data Governance Builder
+# ERD(entity relationship diagram) Building LLM Agent
 **"업무 한 줄 설명"만으로 테이블/컬럼 유추 → ERD 자동 생성**!
 
 기업 내 수백 개 도메인에 흩어진 데이터 모델을 빠르게 정리하고 싶을 때,  
