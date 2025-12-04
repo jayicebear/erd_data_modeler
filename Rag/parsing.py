@@ -103,7 +103,7 @@ def save_chunks_to_chroma(chunks, model_name, chroma_path, collection_name):
     print(f"{len(chunks)}개의 청크를 '{collection_name}' 컬렉션에 직접 저장했습니다.")
     
 if __name__ == "__main__":
-    file_name = '산업은행_교육자료'
+    file_name = '은행_교육자료'
     pdf_path = f'/home/ljm/web_modeler/pdf/{file_name}.pdf'
     output_path = f'/home/ljm/web_modeler/Rag/chunked_data/{file_name}.json'
     model_name = 'Qwen/Qwen3-Embedding-0.6B'
