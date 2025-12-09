@@ -13,3 +13,14 @@
 | `modeler.py`        | 업무설명 + 기존 테이블/컬럼 → 연관 테이블 자동 유추 → ERD 생성            |
 | `RAG + ChromaDB`      | 과거 데이터 모델링 사례, 내부문서, 모델링 가이드등을 벡터 DB에 저장 → column_guess,modeler 구축 시 활용          |
 | `API(Fast api)` | 생성된 ERD(Mermaid) Fast api 활용하여 필요한 부분으로 전송            |
+
+## 사용 모델
+
+| 모델명                                      | 파라미터 | 특징 / 용도                                      |
+|--------------------------------------------|----------|--------------------------------------------------|
+| `Qwen/Qwen3-4B-Instruct-2507`              | 4B       | 한국어 성능 우수, 컬럼명 추측 및 긴 문맥 이해에 최적 |
+| `naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B` | 1.5B     | 경량 + 한국어 특화, 로컬/엣지 환경에서 빠른 추론       |
+| `meta-llama/Llama-3.1-8B-Instruct`         | 8B       | 범용적, 복잡한 ERD 관계 유추 및 Text-to-SQL 정확도 ↑ |
+| `google/gemma-3-4b-it`                     | 4B       | 가볍고 빠른 추론, 비용 효율 최고                      |
+
+> **기본 전략**: 컬럼명 추측 → HyperCLOVAX 1.5B / 관계 유추 & ERD 생성 → Llama-3.1-8B (성능 우선 시)
