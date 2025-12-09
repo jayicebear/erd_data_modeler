@@ -1,17 +1,22 @@
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
 import os
 import re 
 import sys
 import ast
+from huggingface_hub import login
 
 sys.path.append('/home/ljm/web_modeler')
 from Rag.retrieve import query_chroma
-from transformers import AutoModelForCausalLM, AutoTokenizer
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"  
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  
+# HuggingFace 로그인
+login(token="")
 
 def model_load(model_name):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if model_name == 'google/gemma-3-4b-it':
+        tokenizer = AutoProcessor.from_pretrained(model_name) 
+    else:  
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype="auto",
@@ -40,17 +45,18 @@ def build_prompt(tables,columns,business_desc, doc):
 ## 요구사항:
 1. 사용가능한 테이블, 사용가능한 컬럼, 업무설명을 보고 
 SQL 로 데이터 모델링을 하세요 
+2. 샘플 데이터 추가 하지 마세요.
 ** SQL 형식으로만 출력하세요. 설명은 포함하지 마세요.**
 """
     return prompt
 
-def need_question(business_desc,tables,columns): 
+def need_question(model_choice,prompt_mode, business_desc,tables,columns): 
     prompt = f"""
     당신은 데이터 모델링 및 데이터 거버넌스 전문가입니다.  
     아래의 **테이블 메타데이터**, **컬럼 메타데이터**, **업무 설명**을 분석하여  
     현재 모델링에 필요한 정보 중 **부족하거나 추가로 알아야 할 개념/데이터/업무요소**를 찾아주세요.  
 
-    이 단계는 RAG 검색(Query Expansion)에 사용할 키워드를 생성하기 위한 것입니다.  
+    이 단계는 RAG 검색에 사용할 키워드를 생성하기 위한 것입니다.  
     
     ---
     ### 테이블 메타데이터
@@ -66,15 +72,23 @@ def need_question(business_desc,tables,columns):
     - 데이터 모델링에 필요한 추가 정보나 개념을 **짧은 단어 또는 구 형태**로만 출력하세요.
     - 출력은 반드시 **리스트(list)** 형태로 작성하세요.
     - **불필요한 문장, 설명, 이유**는 포함하지 마세요.
+    - 출력 5개 이하로 하세요.
 
     예시 출력:
     ["거래종류코드", "신용정보등급", "고객상세테이블", "거래분류프로세스", "데이터품질진단"]
     """
-    result = generate_data_model(model,prompt)
+    if model_choice.lower() == 'qwen':
+        result = generate_data_model_qwen(model,tokenizer,prompt,prompt_mode)
+    elif model_choice.lower() == 'hyper':
+        result = generate_data_model_hyper(model,tokenizer,prompt,prompt_mode)
+    elif model_choice.lower() == 'llama':
+        result = generate_data_model_llama(model,tokenizer,prompt,prompt_mode)
+    elif model_choice.lower() == 'gemma':
+        result = generate_data_model_gemma(model,tokenizer,prompt,prompt_mode)
     return result
     
     
-def generate_data_model(model,prompt):
+def generate_data_model_qwen(model,tokenizer,prompt,prompt_mode):
     # load the tokenizer and the model
     messages = [
         {"role": "user", "content": prompt}
@@ -102,7 +116,7 @@ def generate_data_model(model,prompt):
     #print("content:", content)
     return content 
 
-def generate_data_model_hyper(prompt,model,tokenizer):
+def generate_data_model_hyper(model,tokenizer,prompt,prompt_mode):
     chat = [
     {"role": "tool_list", "content": ""},
     {"role": "system", "content": "You are an expert data model analyst."},
@@ -113,22 +127,91 @@ def generate_data_model_hyper(prompt,model,tokenizer):
     inputs = inputs.to("cuda")
     output_ids = model.generate(
         **inputs,
-        max_length=1024,
+        max_length=10000,
         stop_strings=["<|endofturn|>", "<|stop|>"],
         tokenizer=tokenizer
         )
     result = tokenizer.batch_decode(output_ids)[0]
-    result = result.split('<|im_start|>assistant')[1].split('<|im_end|>')[0]
-    lines = [line.strip() for line in result.strip().splitlines() if line.strip()]
-    cleaned = [re.sub(r'^\d+\.\s*', '', line).strip().strip('"') for line in lines]
-    print(lines)
-    print(cleaned)
-    return cleaned
+    
+    if prompt_mode.lower() =='rag':    
+        result = result.split('<|im_start|>assistant')[1].split('<|im_end|>')[0]
+        result = f"[{result}]"
+    else:
+        result = result.split('<|im_start|>assistant')[1].split('<|im_end|>')[0]
+        result = result.replace('`', '').replace('sql','')
+    #cleaned = [line.strip().strip('"').strip("'") for line in lines]
+    # cleaned = [re.sub(r'^\d+\.\s*', '', line).strip().strip('"') for line in lines]
+    #print(lines)
+    #print(cleaned)
+    print(result)
+    return result
+
+def generate_data_model_llama(model,tokenizer,prompt,prompt_mode):
+    
+    messages = [
+{"role": "user", "content": prompt},
+]
+    inputs = tokenizer.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(model.device)
+
+    outputs = model.generate(**inputs, max_new_tokens=10000)
+    output = tokenizer.decode(outputs[0][inputs["input_ids"].shape[-1]:])
+    output = output.replace('<|eot_id|>','')
+    print(output)
+    if prompt_mode.lower() == 'rag':
+        if isinstance(output, list):
+            return output
+        else:
+            items = re.split(r"[,\.\-\*\•]", output)
+            items = [item.replace('\n','').replace('*','').replace('#','').replace('/','').strip() for item in items if item.strip()]
+            print(items)
+            return items
+    else:
+        output = output.replace("`", "").replace("sql", "")
+        return output
+
+def generate_data_model_gemma(model,tokenizer,prompt,prompt_mode):
+    messages = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": prompt}
+        ]
+    },
+]
+    inputs = tokenizer.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(model.device)
+
+    outputs = model.generate(**inputs, max_new_tokens=10000)
+    output = tokenizer.decode(outputs[0][inputs["input_ids"].shape[-1]:])
+    if prompt_mode.lower() =='rag':
+        output = output.replace('<end_of_turn>','')
+    else:
+        output = output.replace('<end_of_turn>','')
+        output = output.replace('`','').replace('sql','')
+    return output
 
 if __name__== "__main__":
-    inference_model = "Qwen/Qwen3-4B-Instruct-2507"
-    inference_model = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
-
+    model_choice = 'gemma'
+    if model_choice.lower() == 'qwen':
+        inference_model = "Qwen/Qwen3-4B-Instruct-2507"
+    elif model_choice.lower() == 'hyper':
+        inference_model = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
+    elif model_choice.lower() == 'llama':
+        inference_model = 'meta-llama/Llama-3.1-8B-Instruct'
+    elif model_choice.lower() == 'gemma':
+        inference_model = 'google/gemma-3-4b-it'
+        
     model, tokenizer = model_load(inference_model)
     embedding_model = 'Qwen/Qwen3-Embedding-0.6B'
     chroma_path = "/home/ljm/web_modeler/Rag/chroma_db"
@@ -154,8 +237,15 @@ if __name__== "__main__":
     {"table_name": "car_trim", "column_name": "created_at", "data_type": "DATETIME", "description": "등록 일시"},
     {"table_name": "car_trim", "column_name": "updated_at", "data_type": "DATETIME", "description": "수정 일시"}]
     
-    query = need_question(business_desc,tables,columns)
-    query = ast.literal_eval(query)
+    prompt_mode = 'rag'
+    query = need_question(model_choice, prompt_mode, business_desc,tables,columns)
+    
+    if isinstance(query, str):
+        try:
+            query = ast.literal_eval(query)
+        except Exception:
+            pass
+        
     print(query)
     print(len(query))
     top_k=1
@@ -166,7 +256,15 @@ if __name__== "__main__":
         doc_list.append(doc)
         
     prompt = build_prompt(tables,columns,business_desc, doc_list)
-    result = generate_data_model(model,prompt)
+    prompt_mode = 'generate'
+    if model_choice.lower() == 'qwen':
+        result = generate_data_model_qwen(model,tokenizer,prompt,prompt_mode)
+    elif model_choice.lower() == 'hyper':
+        result = generate_data_model_hyper(model,tokenizer,prompt,prompt_mode)
+    elif model_choice.lower() == 'llama':
+        result = generate_data_model_llama(model,tokenizer,prompt,prompt_mode)    
+    elif model_choice.lower() == 'gemma':
+        result = generate_data_model_gemma(model,tokenizer,prompt,prompt_mode)  
     print('---------------------')
     print(result)
     print('---------------------')
