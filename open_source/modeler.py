@@ -216,6 +216,7 @@ if __name__== "__main__":
     embedding_model = 'Qwen/Qwen3-Embedding-0.6B'
     chroma_path = "/home/ljm/web_modeler/Rag/chroma_db"
     collection_name = "pdf_chunks"
+    # 이 부분은 예시 추후에 api 로 데이터 받아와서 넣어줘야함
     business_desc = """
     오디오별로 트림을 설정하고 트림별 기본/선택 옵션을 셋팅하여 판매 스펙을 구성하는 업무입니다.
     각 트림에는 고유한 ID가 있고, 여러 옵션을 선택할 수 있습니다.
